@@ -16,6 +16,8 @@ import io.reactivex.ObservableOnSubscribe;
 import io.reactivex.ObservableSource;
 import io.reactivex.Observer;
 import io.reactivex.disposables.Disposable;
+import io.reactivex.functions.Consumer;
+import io.reactivex.functions.Function;
 
 
 /**
@@ -40,6 +42,233 @@ public class MainActivity extends AppCompatActivity {
 //        doInterval();//每隔指定时间就发送事件,从0开始、无限递增1的的整数序列
         doIntervalRange();//每隔指定时间就发送事件，可指定发送的数据的数量
         doRange();//连续发送 1个事件序列，可指定范围(同类的有rangeLong())
+
+        //变换操作符
+        doMap();
+        doFlatMap();//将被观察者发送的事件序列进行拆分 & 单独转换，再合并成一个新的事件序列，最后再进行发送
+        doConcatMap();//
+        doBuffer();
+
+        //组合多个被观察者
+        doConcat();//组合被观察者数量≤4个
+        doConcatArray();//组合被观察者数量＞4个
+        doMerge();//组合被观察者数量≤4个，合并后 按时间线并行执行
+        doMergeArray();//组合被观察者数量＞4个，合并后 按时间线并行执行
+
+    }
+
+    private void doMergeArray() {
+        //类似merge(),大于4个使用
+    }
+
+    private void doMerge() {
+        // merge（）：组合多个被观察者（＜4个）一起发送数据
+        // 注：合并后按照时间线并行执行
+        Observable.merge(
+                Observable.intervalRange(0, 3, 1, 1, TimeUnit.SECONDS), // 从0开始发送、共发送3个数据、第1次事件延迟发送时间 = 1s、间隔时间 = 1s
+                Observable.intervalRange(2, 3, 1, 1, TimeUnit.SECONDS)) // 从2开始发送、共发送3个数据、第1次事件延迟发送时间 = 1s、间隔时间 = 1s
+                .subscribe(new Observer<Long>() {
+                    @Override
+                    public void onSubscribe(Disposable d) {
+
+                    }
+
+                    @Override
+                    public void onNext(Long value) {
+                        Log.d(TAG, "接收到了事件"+ value  );
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        Log.d(TAG, "对Error事件作出响应");
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        Log.d(TAG, "对Complete事件作出响应");
+                    }
+                });
+    }
+
+    private void doConcatArray() {
+        // concatArray（）：组合多个被观察者一起发送数据（可＞4个）
+        // 注：串行执行
+        Observable.concatArray(Observable.just(1, 2, 3),
+                Observable.just(4, 5, 6),
+                Observable.just(7, 8, 9),
+                Observable.just(10, 11, 12),
+                Observable.just(13, 14, 15))
+                .subscribe(new Observer<Integer>() {
+                    @Override
+                    public void onSubscribe(Disposable d) {
+
+                    }
+
+                    @Override
+                    public void onNext(Integer value) {
+                        Log.d(TAG, "接收到了事件"+ value  );
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        Log.d(TAG, "对Error事件作出响应");
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        Log.d(TAG, "对Complete事件作出响应");
+                    }
+                });
+    }
+
+    private void doConcat() {
+        // concat（）：组合多个被观察者（≤4个）一起发送数据
+        // 注：串行执行
+        Observable.concat(Observable.just(1, 2, 3),
+                Observable.just(4, 5, 6),
+                Observable.just(7, 8, 9),
+                Observable.just(10, 11, 12))
+                .subscribe(new Observer<Integer>() {
+                    @Override
+                    public void onSubscribe(Disposable d) {
+
+                    }
+
+                    @Override
+                    public void onNext(Integer value) {
+                        Log.d(TAG, "接收到了事件"+ value  );
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        Log.d(TAG, "对Error事件作出响应");
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        Log.d(TAG, "对Complete事件作出响应");
+                    }
+                });
+    }
+
+    private void doBuffer() {
+        // 被观察者 需要发送5个数字
+        Observable.just(1, 2, 3, 4, 5)
+                .buffer(3, 1) // 设置缓存区大小 & 步长
+                // 缓存区大小 = 每次从被观察者中获取的事件数量
+                // 步长 = 每次获取新事件的数量
+                .subscribe(new Observer<List<Integer>>() {
+                    @Override
+                    public void onSubscribe(Disposable d) {
+
+                    }
+                    @Override
+                    public void onNext(List<Integer> stringList) {
+                        //
+                        Log.d(TAG, " 缓存区里的事件数量 = " +  stringList.size());
+                        for (Integer value : stringList) {
+                            Log.d(TAG, " 事件 = " + value);
+                        }
+                    }
+
+                    @Override
+                    public void onError(Throwable e) {
+                        Log.d(TAG, "对Error事件作出响应" );
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        Log.d(TAG, "对Complete事件作出响应");
+                    }
+                });
+    }
+
+    private void doConcatMap() {
+        // 采用RxJava基于事件流的链式操作
+        Observable.create(new ObservableOnSubscribe<Integer>() {
+            @Override
+            public void subscribe(ObservableEmitter<Integer> emitter) throws Exception {
+                emitter.onNext(1);
+                emitter.onNext(2);
+                emitter.onNext(3);
+            }
+
+            // 采用concatMap（）变换操作符
+        }).concatMap(new Function<Integer, ObservableSource<String>>() {
+            @Override
+            public ObservableSource<String> apply(Integer integer) throws Exception {
+                final List<String> list = new ArrayList<>();
+                for (int i = 0; i < 3; i++) {
+                    list.add("我是ConcatMap事件 " + integer + "拆分后的子事件" + i);
+                    // 通过concatMap中将被观察者生产的事件序列先进行拆分，再将每个事件转换为一个新的发送三个String事件
+                    // 最终合并，再发送给被观察者
+                }
+                return Observable.fromIterable(list);
+            }
+        }).subscribe(new Consumer<String>() {
+            @Override
+            public void accept(String s) throws Exception {
+                Log.d(TAG, s);
+            }
+        });
+    }
+
+    private void doFlatMap() {
+        // 采用RxJava基于事件流的链式操作
+        Observable.create(new ObservableOnSubscribe<Integer>() {
+            @Override
+            public void subscribe(ObservableEmitter<Integer> emitter) throws Exception {
+                emitter.onNext(1);
+                emitter.onNext(2);
+                emitter.onNext(3);
+            }
+
+            // 采用flatMap（）变换操作符
+        }).flatMap(new Function<Integer, ObservableSource<String>>() {
+            @Override
+            public ObservableSource<String> apply(Integer integer) throws Exception {
+                final List<String> list = new ArrayList<>();
+                for (int i = 0; i < 3; i++) {
+                    list.add("我是FlatMap事件 " + integer + "拆分后的子事件" + i);
+                    // 通过flatMap中将被观察者生产的事件序列先进行拆分，再将每个事件转换为一个新的发送三个String事件
+                    // 最终合并，再发送给被观察者
+                }
+                return Observable.fromIterable(list);
+            }
+        }).subscribe(new Consumer<String>() {
+            @Override
+            public void accept(String s) throws Exception {
+                Log.d(TAG, s);
+            }
+        });
+    }
+
+    private void doMap() {
+        // 采用RxJava基于事件流的链式操作
+        Observable.create(new ObservableOnSubscribe<Integer>() {
+
+            // 1. 被观察者发送事件 = 参数为整型 = 1、2、3
+            @Override
+            public void subscribe(ObservableEmitter<Integer> emitter) throws Exception {
+                emitter.onNext(1);
+                emitter.onNext(2);
+                emitter.onNext(3);
+
+            }
+            // 2. 使用Map变换操作符中的Function函数对被观察者发送的事件进行统一变换：整型变换成字符串类型
+        }).map(new Function<Integer, String>() {
+            @Override
+            public String apply(Integer integer) throws Exception {
+                return "使用 Map变换操作符 将事件" + integer +"的参数从 整型"+integer + " 变换成 字符串类型" + integer ;
+            }
+        }).subscribe(new Consumer<String>() {
+
+            // 3. 观察者接收事件时，是接收到变换后的事件 = 字符串类型
+            @Override
+            public void accept(String s) throws Exception {
+                Log.d(TAG, s);
+            }
+        });
     }
 
     private void doRange() {
